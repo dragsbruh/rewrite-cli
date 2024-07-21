@@ -1,5 +1,5 @@
 import os
-import httpx
+import requests
 
 
 modules = [
@@ -21,7 +21,7 @@ def load_modules(basepath: str):
         if os.path.exists(path):
             continue
 
-        response = httpx.get(module)
+        response = requests.get(module)
         response.raise_for_status()
 
         with open(path, 'w') as f:

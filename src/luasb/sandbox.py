@@ -55,6 +55,7 @@ class LuaSandbox:
         self.lua_globals = self.runtime.globals()
 
         self.lua_globals.Result = {}
+        self.Result = {}
         self.output = []
         self.lua_globals.print = self._print
         self.lua_globals.require = self._require

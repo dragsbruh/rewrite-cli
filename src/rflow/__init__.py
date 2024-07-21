@@ -4,7 +4,7 @@ import httpx
 
 from typing import Any, Optional
 
-from rflow._exceptions import AuthenticationError, BadRequestError
+from rflow._exceptions import AuthenticationError, BadRequestError, NotFoundError
 from ._models import User, Flow, PublicFlow
 
 
@@ -83,11 +83,12 @@ class RewriteFlow:
 
     def get_my_code(self, flow_id: str):
         response = self._request('get', f'/flows/my/{flow_id}/code')
-        return response.text
+        return response.json()
 
-    def update_flow_env(self, flow: Flow):
-        self._request('patch', f'/flows/update_env/f{flow.id}', json={
-            'env': flow.env.copy()
+    def update_flow(self, flow: Flow):
+        self._request('patch', f'/flows/update_info/{flow.id}', json={
+            'env': flow.env.copy(),
+            'name': flow.name
         })
 
     def set_my_code(self, flow_id: str, code: str):
@@ -120,6 +121,12 @@ class RewriteFlow:
                 raise BadRequestError(data['detail'])
             raise BadRequestError(
                 f'Bad request error when requesting {url} with {method}: {data}')
+        elif response.status_code == 404:
+            data = response.json()
+            if 'detail' in data:
+                raise NotFoundError(data['detail'])
+            raise NotFoundError(
+                f'Not found error when requesting {url} with {method}: {data}')
         response.raise_for_status()
         return response
 

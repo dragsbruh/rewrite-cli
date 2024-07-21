@@ -1,5 +1,5 @@
 --[[
-NOTE: This file is only used for type hinting and developer experience.
+NOTE: This file is only used for type hinting and developer experience. (for intellisense, etc)
       Please do not modify unless its absolutely necessary.
 ]]
 

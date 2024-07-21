@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import httpx
+
 
 def readable_time(timestamp: int):
     dt = datetime.fromtimestamp(timestamp)
@@ -28,3 +30,9 @@ readme = [
 
 def get_readme():
     return dict_to_markdown(readme)
+
+def get_rewrite_helper_code():
+    url = "https://raw.githubusercontent.com/dragsbruh/rewrite-cli/main/src/custom_lmods/rewrite.lua"
+    response = httpx.get(url)
+    response.raise_for_status()
+    return response.text

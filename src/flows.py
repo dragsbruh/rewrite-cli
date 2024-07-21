@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.console import Console
 from rflow._exceptions import AuthenticationError, NotFoundError
 
-from utils import get_readme, readable_time
+from utils import get_readme, get_rewrite_helper_code, readable_time
 
 console = Console()
 print = console.print
@@ -51,6 +51,9 @@ def scaffold_flow_directory(target_path: str, name: str):
             exit(1)
 
         (path / "lua_modules" / f"{name}").write_bytes(response.content)
+    
+    print("Fetching helper module")
+    (path / "rewrite.lua").write_text(get_rewrite_helper_code())
 
 
 @click.group()

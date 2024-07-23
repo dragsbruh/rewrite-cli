@@ -1,12 +1,14 @@
 import click
 
+from rich.console import Console
+
 from rflow import rf
 from rflow._exceptions import AuthenticationError, ConflictError
 from utils import readable_time
 
-from rich.console import Console
 console = Console()
 print = console.print
+
 
 @click.group()
 def auth(): pass

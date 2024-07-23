@@ -7,7 +7,10 @@ import click
 from pathlib import Path
 from typing import Any
 
+import luasb
+from luasb._exceptions import LuaRuntimeError
 from rflow import rf
+from luasb.sandbox import LuaSandbox, variable
 from rich.table import Table
 from rich.console import Console
 from rflow._exceptions import AuthenticationError, NotFoundError
@@ -51,7 +54,7 @@ def scaffold_flow_directory(target_path: str, name: str):
             exit(1)
 
         (path / "lua_modules" / f"{name}").write_bytes(response.content)
-    
+
     print("Fetching helper module")
     (path / "rewrite.lua").write_text(get_rewrite_helper_code())
 
@@ -97,6 +100,7 @@ def publish():
     if not all([os.path.exists(p) for p in req_paths]):
         print("One or two required files missing: ", ', '.join(req_paths))
         print("Are you sure you are in the correct directory?")
+        exit(1)
 
     with open('rflow.config.toml', 'r') as f:
         fconf = toml.load(f)
@@ -187,7 +191,6 @@ def pull(id: str):
         print("Authentication error. Please make sure you are logged in.")
         exit(1)
 
-    
     scaffold_flow_directory(".", "loading...")
     print(f"Pulling code for flow '{flow.name}'...")
     code = rf.get_my_code(id)
@@ -208,6 +211,62 @@ def pull(id: str):
         toml.dump(fconf, f)
 
     print("Done!")
+
+
+@flows.command()
+def test():
+    print("Starting sandbox...")
+    luasb.modules.modules_dir = 'lua_modules'
+
+    req_paths = ['rflow.config.toml', 'main.lua']
+
+    if not all([os.path.exists(p) for p in req_paths]):
+        print("One or two required files missing: ", ', '.join(req_paths))
+        print("Are you sure you are in the correct directory?")
+        exit(1)
+
+    with open('rflow.config.toml', 'r') as f:
+        fconf = toml.load(f)
+    with open('main.lua', 'r') as f:
+        code = f.read()
+
+    try:
+        renv: dict[Any, Any] = fconf['env'] if 'env' in fconf else {}
+
+        if type(renv) != dict:
+            raise ValueError('renv')
+
+    except KeyError as e:
+        print(
+            f"rflow.config.toml is missing required key (or) incorrect type: '{e}'")
+        exit(1)
+    except ValueError as e:
+        print(f"rflow.config.toml is having wrong value: '{e}'")
+        exit(1)
+
+    if os.path.exists('payload.toml'):
+        with open('payload.toml', 'r') as f:
+            rpayload = toml.load(f)
+
+        payload: dict[str, variable] = {}
+
+        payload['body'] = rpayload['body'] if 'body' in rpayload else {}
+        payload['headers'] = rpayload['headers'] if 'headers' in rpayload else {}
+        payload['params'] = rpayload['params'] if 'params' in rpayload else {}
+        payload['env'] = renv
+    else:
+        payload = {}
+        payload['body'] = {}
+        payload['headers'] = {}
+        payload['params'] = {}
+        payload['env'] = renv
+
+    sb = LuaSandbox(payload, print_fn=print)
+    try:
+        sb.execute(code)
+    except LuaRuntimeError as e:
+        print(f"Lua runtime error occurred: {e}")
+        exit(1)
 
 
 @flows.command()

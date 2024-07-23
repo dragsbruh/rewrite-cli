@@ -9,7 +9,7 @@ NOTE: This file is only used for type hinting and developer experience. (for int
 --- @type string
 --- @doc Incoming Request Body
 --- @global
-body = "\x89PNG\r\n\x1a\n"
+body = ""
 
 --- @type table<string, string>
 --- @doc Incoming Request Headers

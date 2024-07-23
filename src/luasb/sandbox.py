@@ -3,16 +3,24 @@ import lupa  # type: ignore
 import json
 
 from lupa import LuaRuntime  # type: ignore
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from . import modules as lmods
 from ._exceptions import LuaRuntimeError
 
+default_blocked_globals = [
+    'require',
+    'package',
+    'io',
+    'os',
+    'debug',
+    'load',
+    'loadfile',
+    'dofile',
+    'loadstring',
+]
 
-default_allowed_modules = []
-default_blocked_globals = []
-
-variable = dict[str, Any] | str | bytes
+variable = dict[str, Any] | str
 
 _default_max_memory = 50 * 1024 * 1024  # 50mb
 
@@ -22,15 +30,15 @@ class LuaSandbox:
         self,
         values: Optional[dict[str, variable]] = None,
         max_memory: int = _default_max_memory,
-        allowed_modules: list[str] = default_allowed_modules,
-        blocked_globals: list[str] = default_blocked_globals
+        blocked_globals: list[str] = default_blocked_globals,
+        print_fn: Optional[Callable[[str], None]] = None
     ) -> None:
         self.modules_path = f'{lmods.modules_dir}/?.lua'
-        self.allowed_modules = allowed_modules
         self.blocked_globals = blocked_globals
 
-        self.allowed_modules.extend(
-            [os.path.splitext(x)[0] for x in os.listdir(lmods.modules_dir)])
+        self.allowed_modules: list[str] = [os.path.splitext(
+            x)[0] for x in os.listdir(lmods.modules_dir)]
+        self.allowed_modules.extend(["math", "utf8", "table"]) # TODO: Allow user customizations
 
         self.runtime = LuaRuntime(
             unpack_returned_tuples=True,
@@ -41,10 +49,12 @@ class LuaSandbox:
         self.set_globals()
         if values:
             self.inject_values(values)
+        
+        self.print_fn = print_fn
 
     def set_globals(self):
         self._old_require = self.runtime.globals().require
-        
+
         self.runtime.execute(
             f"package.path = '{self.modules_path};'")
 
@@ -56,24 +66,21 @@ class LuaSandbox:
 
         self.lua_globals.Result = {}
         self.Result = {}
-        self.output = []
+        self.output: list[str] = []
         self.lua_globals.print = self._print
         self.lua_globals.require = self._require
 
-
     def inject_values(self, values: dict[str, variable]):
         self.runtime.execute('json = require("json")')
-        self.runtime.execute('base85 = require("base85")')
 
         for name, value in values.items():
-            if isinstance(value, str) or isinstance(value, bytes):
+            if isinstance(value, str):
                 self.lua_globals[name] = value
             else:
                 code = f'{name} = json.decode([[{json.dumps(value)}]]);'
                 self.runtime.execute(code)
 
         self.lua_globals.json = None
-        self.lua_globals.base85 = None
 
     def execute(self, code: str):
         try:
@@ -108,5 +115,8 @@ class LuaSandbox:
 
         return python_dict
 
-    def _print(*args):
-        pass
+    def _print(self, *args: Any):  # type: ignore
+        sep = ' '
+        self.output.append(sep.join(str(arg) for arg in args))
+        if self.print_fn:
+            self.print_fn(sep.join(str(arg) for arg in args))
